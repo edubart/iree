@@ -7,11 +7,6 @@
 #include "iree-dialects/Dialect/LinalgExt/IR/LinalgExtOps.h"
 
 #include "iree-dialects/Dialect/LinalgExt/IR/LinalgExtDialect.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/TypeSwitch.h"
-#include "llvm/Support/SMLoc.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arithmetic/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -33,6 +28,11 @@
 #include "mlir/IR/Value.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Support/SMLoc.h"
 
 using namespace mlir;
 using namespace mlir::iree_compiler::IREE::LinalgExt;
@@ -328,7 +328,8 @@ LogicalResult ScatterOp::generateScalarImplementation(OpBuilder &b,
     Value idx = b.create<memref::LoadOp>(loc, indices(), loadIndices);
     Value cast = b.create<arith::IndexCastOp>(loc, b.getIndexType(), idx);
 
-    if (starts[i]) cast = b.create<arith::AddIOp>(loc, cast, starts[i]);
+    if (starts[i])
+      cast = b.create<arith::AddIOp>(loc, cast, starts[i]);
     starts[i] = cast;
   }
 
@@ -432,8 +433,8 @@ SmallVector<Range> SortOp::getIterationDomain(OpBuilder &builder) {
   return loopBounds;
 }
 
-SmallVector<unsigned> SortOp::getPartitionableLoops(
-    unsigned maxNumParallelDims) {
+SmallVector<unsigned>
+SortOp::getPartitionableLoops(unsigned maxNumParallelDims) {
   auto range = llvm::seq<unsigned>(0, getOperandRank());
   SmallVector<unsigned> partitionableLoops(range.begin(), range.end());
   partitionableLoops.erase(std::next(partitionableLoops.begin(), dimension()));
@@ -564,7 +565,8 @@ LogicalResult FftOp::verify() {
   // After tiling, it could be dynamic shape. (Because
   // subview/subtensor does not inference the type correctly
   // on (1 << x)) cases).
-  if (length == ShapedType::kDynamicSize) return success();
+  if (length == ShapedType::kDynamicSize)
+    return success();
   if (length & (length - 1)) {
     return emitOpError("only powers of 2 are handled currently");
   }
@@ -758,8 +760,8 @@ LogicalResult FftOp::generateScalarImplementation(OpBuilder &b, Location loc,
   return success();
 }
 
-SmallVector<unsigned> FftOp::getPartitionableLoops(
-    unsigned maxNumParallelDims) {
+SmallVector<unsigned>
+FftOp::getPartitionableLoops(unsigned maxNumParallelDims) {
   auto range = llvm::seq<unsigned>(0, getOperandRank());
   SmallVector<unsigned> partitionableLoops(range.begin(), range.end());
   // Indices matter for coeff computation.
@@ -836,7 +838,8 @@ LogicalResult ScanOp::verify() {
   }
   SmallVector<int64_t> expectedAccumulatorShape;
   for (int i = 0; i < inputType.getRank(); i++) {
-    if (i != dimension()) expectedAccumulatorShape.push_back(inputShapes[i]);
+    if (i != dimension())
+      expectedAccumulatorShape.push_back(inputShapes[i]);
   }
   if (llvm::any_of(llvm::zip(expectedAccumulatorShape, accumulatorShape),
                    [](std::tuple<int64_t, int64_t> s) {
@@ -885,8 +888,8 @@ SmallVector<StringRef> ScanOp::getLoopIteratorTypes() {
   return iteratorTypes;
 }
 
-SmallVector<unsigned> ScanOp::getPartitionableLoops(
-    unsigned maxNumParallelDims) {
+SmallVector<unsigned>
+ScanOp::getPartitionableLoops(unsigned maxNumParallelDims) {
   auto range = llvm::seq<unsigned>(0, getOperandRank());
   SmallVector<unsigned> partitionableLoops(range.begin(), range.end());
   partitionableLoops.erase(std::next(partitionableLoops.begin(), dimension()));
@@ -914,7 +917,8 @@ LogicalResult ScanOp::generateScalarImplementation(OpBuilder &b, Location loc,
   bool isInclusive = inclusive();
   SmallVector<Value> accIndices;
   for (int i = 0; i < indices.size(); i++) {
-    if (i != scanDim) accIndices.push_back(indices[i]);
+    if (i != scanDim)
+      accIndices.push_back(indices[i]);
   }
 
   auto scfIf = b.create<scf::IfOp>(
@@ -936,9 +940,11 @@ LogicalResult ScanOp::generateScalarImplementation(OpBuilder &b, Location loc,
         indices[scanDim] = ivMinusOne;
         scanBlkArgs.push_back(b.create<memref::LoadOp>(loc, output(), indices));
         Value i0;
-        if (!isInclusive) i0 = b.create<memref::LoadOp>(loc, input(), indices);
+        if (!isInclusive)
+          i0 = b.create<memref::LoadOp>(loc, input(), indices);
         indices[scanDim] = iv;
-        if (isInclusive) i0 = b.create<memref::LoadOp>(loc, input(), indices);
+        if (isInclusive)
+          i0 = b.create<memref::LoadOp>(loc, input(), indices);
         scanBlkArgs.push_back(i0);
       });
 
@@ -1165,14 +1171,14 @@ Operation *ReverseOp::getTiledImplementation(OpBuilder &builder,
   return tiledRevOp;
 }
 
-#define DEFINE_OP_GET_EFFECTS(OP_NAME)                                    \
-  void OP_NAME::getEffects(                                               \
-      SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>> \
-          &effects) {                                                     \
-    SmallVector<Value> inputBuffers = getInputBufferOperands();           \
-    SmallVector<Value> outputBuffers = getOutputBufferOperands();         \
-    getEffectsImpl(effects, getOperation()->getResults(), inputBuffers,   \
-                   outputBuffers);                                        \
+#define DEFINE_OP_GET_EFFECTS(OP_NAME)                                         \
+  void OP_NAME::getEffects(                                                    \
+      SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>      \
+          &effects) {                                                          \
+    SmallVector<Value> inputBuffers = getInputBufferOperands();                \
+    SmallVector<Value> outputBuffers = getOutputBufferOperands();              \
+    getEffectsImpl(effects, getOperation()->getResults(), inputBuffers,        \
+                   outputBuffers);                                             \
   }
 
 DEFINE_OP_GET_EFFECTS(ScatterOp)
@@ -1192,11 +1198,13 @@ struct FoldTensorCastOp : public OpInterfaceRewritePattern<LinalgExtOp> {
     // If no operand comes from a tensor::CastOp and can be folded then fail.
     bool hasTensorCastOperand =
         llvm::any_of(op.getInputAndOutputOperands(), [&](OpOperand *opOperand) {
-          if (opOperand->get().isa<BlockArgument>()) return false;
+          if (opOperand->get().isa<BlockArgument>())
+            return false;
           auto castOp = opOperand->get().getDefiningOp<tensor::CastOp>();
           return castOp && canFoldIntoConsumerOp(castOp);
         });
-    if (!hasTensorCastOperand) return failure();
+    if (!hasTensorCastOperand)
+      return failure();
 
     SmallVector<Type, 4> newResultTypes;
     newResultTypes.reserve(op->getNumResults());
@@ -1237,7 +1245,7 @@ struct FoldTensorCastOp : public OpInterfaceRewritePattern<LinalgExtOp> {
     return success();
   }
 };
-}  // namespace
+} // namespace
 
 //===----------------------------------------------------------------------===//
 // TileOp
@@ -1291,7 +1299,8 @@ LogicalResult TileOp::verify() { return success(); }
 
 void TileOp::print(OpAsmPrinter &p) {
   p << ' ' << tile_size() << ' ';
-  if (tiled_dim() > 0) p << "tiled_dim = " << tiled_dim() << ' ';
+  if (tiled_dim() > 0)
+    p << "tiled_dim = " << tiled_dim() << ' ';
   if (!outs().empty()) {
     p << "outs(";
     llvm::interleaveComma(outs(), p,
@@ -1348,7 +1357,8 @@ ParseResult TileOp::parse(OpAsmParser &parser, OperationState &result) {
                                result.operands))
       return failure();
   }
-  if (parser.parseArrowTypeList(result.types)) return failure();
+  if (parser.parseArrowTypeList(result.types))
+    return failure();
 
   SmallVector<OpAsmParser::OperandType, 8> regionOperands;
   std::unique_ptr<Region> region = std::make_unique<Region>();
@@ -1357,7 +1367,8 @@ ParseResult TileOp::parse(OpAsmParser &parser, OperationState &result) {
     return failure();
 
   // Parse the optional attribute list.
-  if (parser.parseOptionalAttrDict(result.attributes)) return failure();
+  if (parser.parseOptionalAttrDict(result.attributes))
+    return failure();
 
   TileOp::ensureTerminator(*region, builder, result.location);
   result.addRegion(std::move(region));
@@ -1417,7 +1428,8 @@ ParseResult InParallelOp::parse(OpAsmParser &parser, OperationState &result) {
   if (parser.parseOperand(numThreads) ||
       parser.resolveOperand(numThreads, indexType, result.operands))
     return failure();
-  if (parser.parseArrowTypeList(result.types)) return failure();
+  if (parser.parseArrowTypeList(result.types))
+    return failure();
 
   SmallVector<OpAsmParser::OperandType, 8> regionOperands;
   SmallVector<Type, 8> regionTypes;
@@ -1428,7 +1440,8 @@ ParseResult InParallelOp::parse(OpAsmParser &parser, OperationState &result) {
   result.addRegion(std::move(region));
 
   // Parse the optional attribute list.
-  if (parser.parseOptionalAttrDict(result.attributes)) return failure();
+  if (parser.parseOptionalAttrDict(result.attributes))
+    return failure();
   return success();
 }
 
@@ -1532,7 +1545,7 @@ namespace {
 /// Pattern to rewrite a parallel_insert_slice op with constant arguments.
 class ParallelInsertSliceOpConstantArgumentFolder final
     : public OpRewritePattern<ParallelInsertSliceOp> {
- public:
+public:
   using OpRewritePattern<ParallelInsertSliceOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(ParallelInsertSliceOp insertSliceOp,
@@ -1560,7 +1573,7 @@ class ParallelInsertSliceOpConstantArgumentFolder final
     return success();
   }
 };
-}  // namespace
+} // namespace
 
 void ParallelInsertSliceOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
@@ -1595,14 +1608,16 @@ ParseResult PerformConcurrentlyOp::parse(OpAsmParser &parser,
   result.addRegion(std::move(region));
 
   // Parse the optional attribute list.
-  if (parser.parseOptionalAttrDict(result.attributes)) return failure();
+  if (parser.parseOptionalAttrDict(result.attributes))
+    return failure();
   return success();
 }
 
 SmallVector<Type> PerformConcurrentlyOp::yieldedTypes() {
-  return llvm::to_vector(llvm::map_range(
-      this->yieldingOps(),
-      [](ParallelInsertSliceOp op) { return op.yieldedType(); }));
+  return llvm::to_vector(
+      llvm::map_range(this->yieldingOps(), [](ParallelInsertSliceOp op) {
+        return op.yieldedType();
+      }));
 }
 
 SmallVector<ParallelInsertSliceOp> PerformConcurrentlyOp::yieldingOps() {
